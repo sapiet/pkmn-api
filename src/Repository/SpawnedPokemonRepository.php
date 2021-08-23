@@ -23,9 +23,12 @@ class SpawnedPokemonRepository extends ServiceEntityRepository
      * @param float $latitude
      * @param float $longitude
      * @return SpawnedPokemon[]
+     * @throws \Exception
      */
-    public function findAround(float $latitude, float $longitude, \DateTimeInterface $time, float $distance): array
+    public function findAround(float $latitude, float $longitude, float $distance): array
     {
+        $time = new \DateTimeImmutable();
+
         return $this->createQueryBuilder('s')
             ->andWhere('DISTANCE(s.latitude, s.longitude, :latitude, :longitude) < :distance')
             ->andWhere('s.endDate >= :time')

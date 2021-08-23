@@ -6,6 +6,7 @@ use App\Entity\DiscoveredPokemon;
 use App\Repository\DiscoveredPokemonRepository;
 use App\Repository\PokemonRepository;
 use App\Repository\SpawnedPokemonRepository;
+use App\Services\Spawner;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -23,15 +24,16 @@ class DefaultController extends AbstractController
         Request $request,
         SerializerInterface $serializer,
         ManagerRegistry $managerRegistry,
+        Spawner $spawner,
         SpawnedPokemonRepository $spawnedPokemonRepository,
         DiscoveredPokemonRepository $discoveredPokemonRepository
     ): Response {
+        $distance = 0.01;
         $latitude = $request->query->get('latitude');
         $longitude = $request->query->get('longitude');
 
-        $now = new \DateTimeImmutable();
-
-        $spawnedPokemons = $spawnedPokemonRepository->findAround($latitude, $longitude, $now, 5/*0.01*/);
+        $spawner->spawn($latitude, $longitude, $distance * 10, 10);
+        $spawnedPokemons = $spawnedPokemonRepository->findAround($latitude, $longitude, $distance);
 
         $discoveredPokemons = [];
 
