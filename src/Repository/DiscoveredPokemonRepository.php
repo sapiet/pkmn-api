@@ -3,6 +3,7 @@
 namespace App\Repository;
 
 use App\Entity\DiscoveredPokemon;
+use App\Entity\Pokemon;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -17,6 +18,15 @@ class DiscoveredPokemonRepository extends ServiceEntityRepository
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, DiscoveredPokemon::class);
+    }
+
+    /**
+     * @param Pokemon $pokemon
+     * @return bool
+     */
+    public function discovered(Pokemon $pokemon): bool
+    {
+        return 0 < $this->count(compact('pokemon'));
     }
 
     // /**

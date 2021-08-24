@@ -3,9 +3,12 @@
 namespace App\Controller;
 
 use App\Entity\DiscoveredPokemon;
+use App\Entity\Pokemon;
+use App\Entity\SpawnedPokemon;
 use App\Repository\DiscoveredPokemonRepository;
 use App\Repository\PokemonRepository;
 use App\Repository\SpawnedPokemonRepository;
+use App\Services\Distance;
 use App\Services\Spawner;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -38,9 +41,7 @@ class DefaultController extends AbstractController
         $discoveredPokemons = [];
 
         foreach ($spawnedPokemons as $spawnedPokemon) {
-            $discovered = $discoveredPokemonRepository->findOneBy(['pokemon' => $spawnedPokemon->getPokemon()]);
-
-            if (null === $discovered) {
+            if (false === $discoveredPokemonRepository->discovered($spawnedPokemon->getPokemon())) {
                 $discovered = (new DiscoveredPokemon())
                     ->setPokemon($spawnedPokemon->getPokemon())
                 ;
@@ -52,9 +53,40 @@ class DefaultController extends AbstractController
             }
         }
 
+        /** @todo move to service */
+        $pokemonsAround = $spawnedPokemonRepository->findAround($latitude, $longitude, $distance * 100);
+        $pokemonsAround = array_filter(
+            $pokemonsAround,
+            function(SpawnedPokemon $spawnedPokemon) use ($discoveredPokemonRepository): bool {
+                return false === $discoveredPokemonRepository->discovered($spawnedPokemon->getPokemon());
+            }
+        );
+        usort($pokemonsAround, function(SpawnedPokemon $a, SpawnedPokemon $b) use ($latitude, $longitude) : int {
+            $aDistance = Distance::get($latitude, $longitude, $a->getLatitude(), $a->getLongitude());
+            $bDistance = Distance::get($latitude, $longitude, $b->getLatitude(), $b->getLongitude());
+
+            if ($aDistance > $bDistance) {
+                return 1;
+            }
+
+            if ($aDistance < $bDistance) {
+                return -1;
+            }
+
+            return 0;
+        });
+        $pokemonsAround = array_map(function(SpawnedPokemon $spawnedPokemon): Pokemon {
+            return $spawnedPokemon->getPokemon();
+        }, $pokemonsAround);
+        $tmpArray = [];
+        foreach ($pokemonsAround as $pokemonAround) {
+            $tmpArray[$pokemonAround->getId()] = $pokemonAround;
+        }
+        $pokemonsAround = array_values($tmpArray);
+
         $discoveredPokemonsCount = $discoveredPokemonRepository->count([]);
 
-        $data = compact('spawnedPokemons', 'discoveredPokemons', 'discoveredPokemonsCount');
+        $data = compact('spawnedPokemons', 'discoveredPokemons', 'discoveredPokemonsCount', 'pokemonsAround');
 
         return new Response($serializer->serialize($data, 'json'));
     }

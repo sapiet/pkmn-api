@@ -34,6 +34,7 @@ class SpawnedPokemonRepository extends ServiceEntityRepository
             ->andWhere('s.endDate >= :time')
             ->andWhere('s.startDate <= :time')
             ->setParameters(compact('latitude', 'longitude', 'distance', 'time'))
+            ->orderBy('DISTANCE(s.latitude, s.longitude, :latitude, :longitude)', 'ASC')
             ->getQuery()
             ->getResult();
     }
