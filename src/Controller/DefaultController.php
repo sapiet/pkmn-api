@@ -75,12 +75,23 @@ class DefaultController extends AbstractController
 
             return 0;
         });
-        $pokemonsAround = array_map(function(SpawnedPokemon $spawnedPokemon): Pokemon {
-            return $spawnedPokemon->getPokemon();
+        $pokemonsAround = array_map(function(SpawnedPokemon $spawnedPokemon) {
+            $pokemon = $spawnedPokemon->getPokemon();
+
+            return [
+                'id' => $pokemon->getId(),
+                'name' => $pokemon->getName(),
+                'thumbnail' => $pokemon->getThumbnail(),
+                'latitude' => $spawnedPokemon->getLatitude(),
+                'longitude' => $spawnedPokemon->getLongitude(),
+                'endDate' => $spawnedPokemon->getEndDate()->format('Y-m-d H:i:s'),
+            ];
         }, $pokemonsAround);
         $tmpArray = [];
         foreach ($pokemonsAround as $pokemonAround) {
-            $tmpArray[$pokemonAround->getId()] = $pokemonAround;
+            if (false === array_key_exists($pokemonAround['id'], $tmpArray)) {
+                $tmpArray[$pokemonAround['id']] = $pokemonAround;
+            }
         }
         $pokemonsAround = array_values($tmpArray);
 
