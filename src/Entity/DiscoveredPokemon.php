@@ -28,6 +28,11 @@ class DiscoveredPokemon
      */
     private $creationDate;
 
+    /**
+     * @ORM\Column(type="integer", options={"default": 0})
+     */
+    private $catchCount = 0;
+
     public function __construct()
     {
         $this->creationDate = new \DateTimeImmutable();
@@ -60,5 +65,22 @@ class DiscoveredPokemon
         $this->creationDate = $creationDate;
 
         return $this;
+    }
+
+    public function getCatchCount(): ?int
+    {
+        return $this->catchCount;
+    }
+
+    public function setCatchCount(int $catchCount): self
+    {
+        $this->catchCount = $catchCount;
+
+        return $this;
+    }
+
+    public function isCatched(): bool
+    {
+        return 0 < $this->catchCount;
     }
 }

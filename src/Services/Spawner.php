@@ -53,6 +53,10 @@ class Spawner
         $pokemons = [];
 
         foreach ($availablePokemons as $availablePokemon) {
+            if ($availablePokemon->getSpawnPercentage() > 200) {
+                continue;
+            }
+
             array_push(
                 $pokemons,
                 ...array_fill(0, $availablePokemon->getSpawnPercentage(), $availablePokemon)

@@ -29,6 +29,17 @@ class DiscoveredPokemonRepository extends ServiceEntityRepository
         return 0 < $this->count(compact('pokemon'));
     }
 
+    public function getCatchedCount(): int
+    {
+        $queryBuilder = $this->createQueryBuilder('dp');
+
+        return (int) $queryBuilder
+            ->select('COUNT(dp)')
+            ->where('dp.catchCount > 0')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
     // /**
     //  * @return DiscoveredPokemon[] Returns an array of DiscoveredPokemon objects
     //  */

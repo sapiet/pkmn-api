@@ -1,4 +1,5 @@
 .idea
+src/Controller/TestController.php
 
 ###> symfony/framework-bundle ###
 /.env.local

@@ -3,8 +3,10 @@
 namespace App\Repository;
 
 use App\Entity\SpawnedPokemon;
+use App\Entity\SpawnedPokemonPlayer;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use function Doctrine\ORM\QueryBuilder;
 
 /**
  * @method SpawnedPokemon|null find($id, $lockMode = null, $lockVersion = null)
@@ -29,10 +31,18 @@ class SpawnedPokemonRepository extends ServiceEntityRepository
     {
         $time = new \DateTimeImmutable();
 
-        return $this->createQueryBuilder('s')
+        $queryBuilder = $this->createQueryBuilder('s');
+
+        return $queryBuilder
             ->andWhere('DISTANCE(s.latitude, s.longitude, :latitude, :longitude) < :distance')
             ->andWhere('s.endDate >= :time')
             ->andWhere('s.startDate <= :time')
+            ->andWhere($queryBuilder->expr()->not($queryBuilder->expr()->exists(sprintf('
+                SELECT spp
+                FROM %s spp
+                WHERE spp.spawnedPokemon = s
+                AND spp.state IN (\'catched\', \'fled\')
+            ', SpawnedPokemonPlayer::class))))
             ->setParameters(compact('latitude', 'longitude', 'distance', 'time'))
             ->orderBy('DISTANCE(s.latitude, s.longitude, :latitude, :longitude)', 'ASC')
             ->getQuery()

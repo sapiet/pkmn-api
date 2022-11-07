@@ -5,14 +5,16 @@ namespace App\Controller;
 use App\Entity\DiscoveredPokemon;
 use App\Entity\Pokemon;
 use App\Entity\SpawnedPokemon;
+use App\Entity\SpawnedPokemonPlayer;
 use App\Repository\DiscoveredPokemonRepository;
 use App\Repository\PokemonRepository;
+use App\Repository\SpawnedPokemonPlayerRepository;
 use App\Repository\SpawnedPokemonRepository;
 use App\Services\Distance;
 use App\Services\Spawner;
+use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
@@ -52,6 +54,22 @@ class DefaultController extends AbstractController
                 $discoveredPokemons[] = $discovered;
             }
         }
+
+        $spawnedPokemons = array_map(function(SpawnedPokemon $spawnedPokemon): array {
+            return [
+                'id' => $spawnedPokemon->getId(),
+                'latitude' => $spawnedPokemon->getLatitude(),
+                'longitude' => $spawnedPokemon->getLongitude(),
+                'pokemon' => [
+                    'id' => $spawnedPokemon->getPokemon()->getId(),
+                    'name' => $spawnedPokemon->getPokemon()->getName(),
+                    'picture' => $spawnedPokemon->getPokemon()->getPicture(),
+                    'thumbnail' => $spawnedPokemon->getPokemon()->getThumbnail(),
+                ]
+            ];
+        }, $spawnedPokemons);
+
+        $catchedPokemonsCount = $discoveredPokemonRepository->getCatchedCount();
 
         /** @todo move to service */
         $pokemonsAround = $spawnedPokemonRepository->findAround($latitude, $longitude, $distance * 100);
@@ -97,7 +115,13 @@ class DefaultController extends AbstractController
 
         $discoveredPokemonsCount = $discoveredPokemonRepository->count([]);
 
-        $data = compact('spawnedPokemons', 'discoveredPokemons', 'discoveredPokemonsCount', 'pokemonsAround');
+        $data = compact(
+            'spawnedPokemons',
+            'discoveredPokemons',
+            'discoveredPokemonsCount',
+            'pokemonsAround',
+            'catchedPokemonsCount'
+        );
 
         return new Response($serializer->serialize($data, 'json'));
     }
@@ -120,17 +144,23 @@ class DefaultController extends AbstractController
         $discoveredPokemons = [];
 
         foreach ($pokemons as $pokemon) {
+            /** @var DiscoveredPokemon $discoveredPokemon */
             $discoveredPokemon = null;
+            $isCatched = false;
 
             foreach ($discovered as $d) {
                 if ($pokemon->getId() === $d->getPokemon()->getId()) {
                     $discoveredPokemon = $pokemon;
+                    $isCatched = $d->isCatched();
+
+                    break;
                 }
             }
 
             $discoveredPokemons[] = [
                 'pokemon' => $pokemon,
-                'discovered' => null !== $discoveredPokemon
+                'discovered' => null !== $discoveredPokemon,
+                'catched' => $isCatched,
             ];
         }
 
@@ -139,5 +169,60 @@ class DefaultController extends AbstractController
         $data = compact('discoveredPokemons', 'total');
 
         return new Response($serializer->serialize($data, 'json'));
+    }
+
+    /**
+     * @Route("api/try-catch/{id}", name="api_trycatch")
+     */
+    public function tryCatch(
+        EntityManagerInterface $entityManager,
+        SpawnedPokemonRepository $spawnedPokemonRepository,
+        DiscoveredPokemonRepository $discoveredPokemonRepository,
+        SpawnedPokemonPlayerRepository $spawnedPokemonPlayerRepository,
+        int $id
+    ): Response {
+        /** @var SpawnedPokemon $spawnedPokemon */
+        $spawnedPokemon = $spawnedPokemonRepository->find($id);
+
+        $catched = 8 < rand(0, 10);
+        $fled = false;
+
+        if (true === $catched) {
+            /** @var DiscoveredPokemon $discovered */
+            $discovered = $discoveredPokemonRepository->findOneByPokemon($spawnedPokemon->getPokemon());
+            $discovered->setCatchCount($discovered->getCatchCount() + 1);
+
+            $entityManager->flush();
+        } else {
+            $fled = 8 < rand(0, 10);
+        }
+
+        if (true === $fled || true === $catched) {
+            $state = null;
+
+            if (true === $fled) {
+                $state = 'fled';
+            } elseif (true === $catched) {
+                $state = 'catched';
+            }
+
+            $spawnedPokemonPlayer = $spawnedPokemonPlayerRepository->findOneBySpawnedPokemon($spawnedPokemon);
+
+            if (null === $spawnedPokemonPlayer) {
+                $spawnedPokemonPlayer = (new SpawnedPokemonPlayer())
+                    ->setSpawnedPokemon($spawnedPokemon);
+
+                $entityManager->persist($spawnedPokemonPlayer);
+            }
+
+            $spawnedPokemonPlayer->setState($state);
+
+            $entityManager->flush();
+        }
+
+        return $this->json([
+            'catched' => $catched,
+            'fled' => $fled,
+        ]);
     }
 }
